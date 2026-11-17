@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Termine</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="kalender" aria-live="polite"></main>
+
+  <script src="calendar.js"></script>
+  <script>
+    // ===== Hier einstellen =====
+    VereinsKalender.load(document.getElementById("kalender"), {
+      feedUrl: "https://DEIN-WORKER.DEIN-NAME.workers.dev", // Adresse deines Cloudflare Workers
+      maxEvents: 40,          // wie viele kommende Termine angezeigt werden (0 = alle)
+      showDescription: true,  // Beschreibung als aufklappbares "Mehr Infos"
+      emptyText: "Aktuell sind keine Termine eingetragen."
+    });
+  </script>
+</body>
+</html>

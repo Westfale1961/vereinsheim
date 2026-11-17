@@ -1,0 +1,78 @@
+/* Aussehen des Kalenders. Aendere vor allem die Werte im :root-Block. */
+:root {
+  --farbe-akzent: #1f6f43;       /* Vereinsfarbe: Datumsfeld, Monatsueberschrift */
+  --farbe-akzent-text: #ffffff;  /* Schrift im Datumsfeld */
+  --farbe-text: #222222;
+  --farbe-text-leise: #666666;   /* Uhrzeit, Ort */
+  --farbe-hintergrund: transparent; /* transparent = Hintergrund der Homepage */
+  --farbe-karte: #ffffff;
+  --farbe-rand: #e2e2e2;
+  --schrift: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --radius: 10px;
+  --abstand: 12px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: var(--abstand);
+  font-family: var(--schrift);
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--farbe-text);
+  background: var(--farbe-hintergrund);
+}
+
+.cal-month {
+  margin: 24px 0 8px;
+  padding-bottom: 4px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-transform: capitalize;
+  color: var(--farbe-akzent);
+  border-bottom: 2px solid var(--farbe-akzent);
+}
+.cal-month:first-child { margin-top: 0; }
+
+.cal-event {
+  display: flex;
+  gap: var(--abstand);
+  margin: 0 0 10px;
+  padding: 10px;
+  background: var(--farbe-karte);
+  border: 1px solid var(--farbe-rand);
+  border-radius: var(--radius);
+}
+
+.cal-date {
+  flex: 0 0 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 0;
+  background: var(--farbe-akzent);
+  color: var(--farbe-akzent-text);
+  border-radius: calc(var(--radius) - 2px);
+}
+.cal-day { font-size: 1.5rem; font-weight: 700; line-height: 1; }
+.cal-weekday { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; }
+
+.cal-body { flex: 1; min-width: 0; }
+.cal-title { margin: 0 0 2px; font-size: 1.05rem; font-weight: 600; overflow-wrap: anywhere; }
+
+.cal-meta { margin: 0; color: var(--farbe-text-leise); font-size: 0.9rem; }
+.cal-meta span + span::before { content: " · "; }
+
+.cal-details { margin-top: 6px; font-size: 0.9rem; }
+.cal-details summary { cursor: pointer; color: var(--farbe-akzent); }
+.cal-description { margin: 6px 0 0; white-space: pre-line; overflow-wrap: anywhere; }
+
+.cal-loading, .cal-empty, .cal-error { color: var(--farbe-text-leise); }
+.cal-error { color: #a12626; }
+
+@media (max-width: 420px) {
+  .cal-date { flex-basis: 48px; }
+  .cal-day { font-size: 1.3rem; }
+}
