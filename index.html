@@ -52,7 +52,7 @@ html, body { height: 100%; }
 }
 .sk:hover { background: var(--akzent); filter: brightness(1.15); }
 .sk[hidden] { display: none; }
-#sk-hoch { top: 8px; right: 8px; }
+#sk-hoch { bottom: 56px; right: 8px; }
 #sk-runter { bottom: 8px; right: 8px; }
 #sk-links { bottom: 8px; left: 56px; }
 #sk-rechts { bottom: 8px; right: 56px; }
@@ -119,10 +119,13 @@ button:focus-visible { outline: 3px solid var(--akzent-hell); outline-offset: 1p
 
 /* Wochenansicht */
 .woche-scroll { border: 1px solid var(--linie); border-radius: var(--radius); }
-.woche { min-width: 640px; }
+.woche { min-width: 0; }
+/* Schieber: verschiebt den sichtbaren Tagesausschnitt, wenn nicht alle 7 Tage Platz haben */
+.w-schieber { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; color: var(--akzent); font-weight: 700; }
+.w-schieber input[type=range] { flex: 1; height: 34px; margin: 0; accent-color: var(--akzent); touch-action: pan-y; }
 .w-sticky { position: sticky; top: 0; z-index: 3; background: var(--hintergrund); }
 .w-stunden { position: sticky; left: 0; z-index: 1; background: var(--hintergrund); }
-.w-kopf, .w-oben, .w-koerper { display: grid; grid-template-columns: 46px repeat(7, minmax(0, 1fr)); }
+.w-kopf, .w-oben, .w-koerper { display: grid; grid-template-columns: 40px repeat(var(--tage, 7), minmax(0, 1fr)); }
 .w-kopf { background: var(--akzent-hell); border-bottom: 1px solid var(--linie); }
 .w-tag { text-align: center; padding: 6px 2px; font-size: .85em; border-left: 1px solid var(--linie); }
 .w-tag span { font-weight: 700; }
@@ -149,6 +152,16 @@ button:focus-visible { outline: 3px solid var(--akzent-hell); outline-offset: 1p
 }
 .wblock b { display: block; font-weight: 600; }
 .w-jetzt { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid #d92d20; pointer-events: none; z-index: 2; }
+
+.w-tag em { font-style: normal; margin-left: .3em; }
+
+/* Auf kleinen Bildschirmen etwas größere Schrift in der Woche */
+@media (max-width: 700px) {
+  .w-tag { font-size: .9em; }
+  .wblock { font-size: .8em; }
+  .w-chip { font-size: .8em; }
+  .w-stunden .w-std { font-size: .75em; }
+}
 
 /* Dialog */
 dialog { border: 0; border-radius: var(--radius); padding: 0; max-width: min(520px, 94vw); width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
@@ -442,6 +455,7 @@ let ansicht = ["liste", "woche", "monat"].includes(CONFIG.startAnsicht) ? CONFIG
 let monat = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 function montagVon(d) { const x = startOfDay(d); return addDays(x, -((x.getDay() + 6) % 7)); }
 let woche = montagVon(new Date());
+let tagStart = null; // erster sichtbarer Tag der Woche (0 = Montag); null = heute bzw. Montag
 
 const el = id => document.getElementById(id);
 
@@ -487,7 +501,7 @@ function renderMonat() {
     }
   });
 
-  let html = '<div class="monatskopf">' +
+  let html = '<div class="monatskopf navteil">' +
     '<button type="button" id="vor" aria-label="Voriger Monat">‹</button>' +
     '<h2>' + MONATE[m] + " " + y + '</h2>' +
     '<button type="button" id="heute-btn">Heute</button>' +
@@ -558,9 +572,15 @@ function layoutTag(items) {
   return result;
 }
 
-function renderWoche() {
+function renderWoche(nurGitter) {
   const von = CONFIG.wocheVon, bis = CONFIG.wocheBis, hh = CONFIG.stundenHoehe;
-  const tage = [0, 1, 2, 3, 4, 5, 6].map(i => addDays(woche, i));
+  const alleTage = [0, 1, 2, 3, 4, 5, 6].map(i => addDays(woche, i));
+  // Wie viele Tage passen nebeneinander? Mindestens 3, höchstens 7 (je ca. 100 px Breite)
+  const breite = el("inhalt").clientWidth || 700;
+  const n = Math.max(3, Math.min(7, Math.floor((breite - 40) / 100)));
+  if (tagStart === null) { const hi = alleTage.findIndex(d => dayKey(d) === dayKey(new Date())); tagStart = hi >= 0 ? hi : 0; }
+  tagStart = Math.max(0, Math.min(tagStart, 7 - n));
+  const tage = alleTage.slice(tagStart, tagStart + n);
   const wocheEnde = addDays(woche, 7);
   const oben = {}, zeitlich = {};
   tage.forEach(d => { oben[dayKey(d)] = []; zeitlich[dayKey(d)] = []; });
@@ -588,15 +608,23 @@ function renderWoche() {
     ? woche.getDate() + ". – " + ende.getDate() + ". " + MONATE[ende.getMonth()] + " " + ende.getFullYear()
     : woche.getDate() + ". " + MONATE[woche.getMonth()].slice(0, 3) + ". – " + ende.getDate() + ". " + MONATE[ende.getMonth()].slice(0, 3) + ". " + ende.getFullYear();
 
-  let h = '<div class="monatskopf">' +
-    '<button type="button" id="vor" aria-label="Vorige Woche">‹</button>' +
-    '<h2>KW ' + kalenderwoche(woche) + " · " + titel + '</h2>' +
-    '<button type="button" id="heute-btn">Heute</button>' +
-    '<button type="button" id="nach" aria-label="Nächste Woche">›</button></div>';
-  h += '<div class="woche-scroll"><div class="woche"><div class="w-sticky">';
+  let h = "";
+  if (!nurGitter) {
+    h += '<div class="monatskopf navteil">' +
+      '<button type="button" id="vor" aria-label="Vorige Woche">‹</button>' +
+      '<h2>KW ' + kalenderwoche(woche) + " · " + titel + '</h2>' +
+      '<button type="button" id="heute-btn">Heute</button>' +
+      '<button type="button" id="nach" aria-label="Nächste Woche">›</button></div>';
+    if (n < 7) {
+      h += '<div class="w-schieber navteil"><span aria-hidden="true">◀</span>' +
+        '<input type="range" id="tage-schieber" min="0" max="' + (7 - n) + '" step="1" value="' + tagStart + '" aria-label="Tage verschieben">' +
+        '<span aria-hidden="true">▶</span></div>';
+    }
+  }
+  h += '<div class="woche-scroll"><div class="woche" style="--tage:' + n + '"><div class="w-sticky">';
 
   h += '<div class="w-kopf"><div></div>' + tage.map(d =>
-    '<div class="w-tag' + (dayKey(d) === heuteKey ? " heute" : "") + '"><span>' + WOCHENTAGE_KURZ[d.getDay()] + "</span> " + d.getDate() + "." + (d.getMonth() + 1) + ".</div>").join("") + "</div>";
+    '<div class="w-tag' + (dayKey(d) === heuteKey ? " heute" : "") + '"><span>' + WOCHENTAGE_KURZ[d.getDay()] + "</span><em>" + d.getDate() + "." + (d.getMonth() + 1) + ".</em></div>").join("") + "</div>";
 
   if (tage.some(d => oben[dayKey(d)].length)) {
     h += '<div class="w-oben"><div></div>' + tage.map(d => {
@@ -625,7 +653,7 @@ function renderWoche() {
       const hoehe = Math.max(bottom - top, 18);
       h += '<button type="button" class="wblock" data-occ="' + it.idx + '" title="' + esc(o.title) + '" style="top:' + top + "px;height:" + hoehe +
         "px;left:calc(" + (it.col / it.cols * 100) + "% + 1px);width:calc(" + (100 / it.cols) + '% - 2px)">' +
-        "<b>" + esc(o.title) + "</b>" + uhr(o.start) + (o.end > o.start ? "–" + uhr(o.end) : "") + "</button>";
+        "<b>" + esc(o.title) + '</b><span class="zt">' + uhr(o.start) + (o.end > o.start ? "–" + uhr(o.end) : "") + "</span></button>";
     });
     if (k === heuteKey && jetztMin >= von * 60 && jetztMin < bis * 60) {
       h += '<div class="w-jetzt" style="top:' + (jetztMin - von * 60) / 60 * hh + 'px"></div>';
@@ -633,20 +661,25 @@ function renderWoche() {
     h += "</div>";
   });
   h += "</div></div></div>";
+  const scrollPos = el("inhalt").scrollTop;
   el("inhalt").innerHTML = h;
-
-  el("vor").addEventListener("click", () => { woche = addDays(woche, -7); renderWoche(); });
-  el("nach").addEventListener("click", () => { woche = addDays(woche, 7); renderWoche(); });
-  el("heute-btn").addEventListener("click", () => { woche = montagVon(new Date()); renderWoche(); });
+  el("inhalt").scrollTop = scrollPos;
   el("inhalt").querySelectorAll("[data-occ]").forEach(b => b.addEventListener("click", () => zeigeTermin(occurrences[+b.dataset.occ])));
+  if (nurGitter) return;
+
+  el("vor").addEventListener("click", () => { woche = addDays(woche, -7); tagStart = 0; renderWoche(); });
+  el("nach").addEventListener("click", () => { woche = addDays(woche, 7); tagStart = 0; renderWoche(); });
+  el("heute-btn").addEventListener("click", () => { woche = montagVon(new Date()); tagStart = null; renderWoche(); });
   navAuslagern();
+  const sl = el("tage-schieber");
+  if (sl) sl.addEventListener("input", () => { tagStart = +sl.value; renderWoche(true); });
 }
 
-// Die Monats-/Wochen-Navigation steht außerhalb des scrollenden Bereichs
+// Die Monats-/Wochen-Navigation (und der Schieber) stehen außerhalb des scrollenden Bereichs
 function navAuslagern() {
-  const k = el("inhalt").querySelector(".monatskopf");
+  const teile = Array.from(el("inhalt").querySelectorAll(".navteil"));
   el("nav").innerHTML = "";
-  if (k) el("nav").appendChild(k);
+  teile.forEach(t => el("nav").appendChild(t));
 }
 
 function render() {
@@ -721,6 +754,11 @@ function scrollKnoepfeStarten() {
   el("sk-rechts").addEventListener("click", schritt(1, 0));
   e.addEventListener("scroll", scrollKnoepfeAktualisieren, { passive: true });
   window.addEventListener("resize", scrollKnoepfeAktualisieren);
+  let resizeTimer;
+  window.addEventListener("resize", () => {   // z. B. iPad drehen: Anzahl der Tage neu berechnen
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => { if (ansicht === "woche" && occurrences.length) render(); }, 200);
+  });
   new MutationObserver(scrollKnoepfeAktualisieren).observe(e, { childList: true, subtree: true });
   if (window.ResizeObserver) new ResizeObserver(scrollKnoepfeAktualisieren).observe(e);
   scrollKnoepfeAktualisieren();
