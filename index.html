@@ -86,6 +86,37 @@ button:focus-visible { outline: 3px solid var(--akzent-hell); outline-offset: 1p
 }
 .mehr { display: block; color: var(--akzent); font-size: .8em; }
 
+/* Wochenansicht */
+.woche-scroll { overflow-x: auto; border: 1px solid var(--linie); border-radius: var(--radius); }
+.woche { min-width: 640px; }
+.w-kopf, .w-oben, .w-koerper { display: grid; grid-template-columns: 46px repeat(7, minmax(0, 1fr)); }
+.w-kopf { background: var(--akzent-hell); border-bottom: 1px solid var(--linie); }
+.w-tag { text-align: center; padding: 6px 2px; font-size: .85em; border-left: 1px solid var(--linie); }
+.w-tag span { font-weight: 700; }
+.w-tag.heute, .w-spalte.heute, .w-obenzelle.heute { background: var(--heute); }
+.w-oben { border-bottom: 1px solid var(--linie); }
+.w-obenzelle { border-left: 1px solid var(--linie); padding: 3px; min-width: 0; }
+.w-chip {
+  display: block; width: 100%; text-align: left; border: 0; border-radius: 4px;
+  background: var(--akzent); color: #fff; padding: 2px 5px; margin-bottom: 2px;
+  font-size: .75em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.w-chip:hover, .wblock:hover { background: var(--akzent); filter: brightness(1.2); }
+.w-stunden .w-std { height: var(--hh); font-size: .7em; color: var(--text-leise); text-align: right; padding: 0 5px 0 0; transform: translateY(-.6em); }
+.w-stunden .w-std:first-child { transform: translateY(0); }
+.w-spalte {
+  position: relative; border-left: 1px solid var(--linie); min-width: 0;
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(var(--hh) - 1px), var(--linie) calc(var(--hh) - 1px), var(--linie) var(--hh));
+}
+.w-spalte.heute { background-color: var(--heute); }
+.wblock {
+  position: absolute; display: block; text-align: left; overflow: hidden;
+  background: var(--akzent); color: #fff; border: 1px solid #fff; border-radius: 5px;
+  padding: 1px 4px; font-size: .72em; line-height: 1.25; overflow-wrap: anywhere;
+}
+.wblock b { display: block; font-weight: 600; }
+.w-jetzt { position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid #d92d20; pointer-events: none; z-index: 2; }
+
 /* Dialog */
 dialog { border: 0; border-radius: var(--radius); padding: 0; max-width: min(520px, 94vw); width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
 dialog::backdrop { background: rgba(0,0,0,.4); }
@@ -116,6 +147,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
     <h1 id="titel"></h1>
     <div class="knoepfe">
       <button id="btn-liste" type="button">Liste</button>
+      <button id="btn-woche" type="button">Woche</button>
       <button id="btn-monat" type="button">Monat</button>
     </div>
   </div>
@@ -137,8 +169,11 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 const CONFIG = {
   workerUrl: "https://vereinsheim.turnen-f05.workers.dev",
   titel: "Termine",
-  startAnsicht: "liste",   // "liste" oder "monat"
-  listeMonate: 12          // so weit in die Zukunft zeigt die Liste
+  startAnsicht: "liste",   // "liste", "woche" oder "monat"
+  listeMonate: 12,         // so weit in die Zukunft zeigt die Liste
+  wocheVon: 7,             // Wochenansicht beginnt um 7 Uhr
+  wocheBis: 23,            // Wochenansicht endet um 23 Uhr
+  stundenHoehe: 44         // Höhe einer Stunde in Pixeln (Wochenansicht)
 };
 
 /* ============================================================
@@ -362,8 +397,10 @@ function zeitText(o) {
 }
 
 let occurrences = [];
-let ansicht = CONFIG.startAnsicht === "monat" ? "monat" : "liste";
+let ansicht = ["liste", "woche", "monat"].includes(CONFIG.startAnsicht) ? CONFIG.startAnsicht : "liste";
 let monat = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+function montagVon(d) { const x = startOfDay(d); return addDays(x, -((x.getDay() + 6) % 7)); }
+let woche = montagVon(new Date());
 
 const el = id => document.getElementById(id);
 
@@ -448,10 +485,126 @@ function renderMonat() {
   }));
 }
 
+/* ---------- Wochenansicht ---------- */
+function kalenderwoche(d) {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  t.setUTCDate(t.getUTCDate() + 4 - (t.getUTCDay() || 7));
+  const y0 = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return Math.ceil(((t - y0) / 864e5 + 1) / 7);
+}
+
+// Termine eines Tages nebeneinander anordnen, wenn sie sich überschneiden
+function layoutTag(items) {
+  items.sort((a, b) => a.sm - b.sm || b.em - a.em);
+  const result = [], colEnds = [];
+  let cluster = [], clusterEnd = -1;
+  const flush = () => {
+    const cols = Math.max(...cluster.map(c => c.col)) + 1;
+    cluster.forEach(c => { c.cols = cols; result.push(c); });
+    cluster = [];
+  };
+  items.forEach(it => {
+    if (cluster.length && it.sm >= clusterEnd) { flush(); colEnds.length = 0; clusterEnd = -1; }
+    let c = colEnds.findIndex(e => e <= it.sm);
+    if (c < 0) c = colEnds.length;
+    colEnds[c] = it.em;
+    it.col = c;
+    cluster.push(it);
+    clusterEnd = Math.max(clusterEnd, it.em);
+  });
+  if (cluster.length) flush();
+  return result;
+}
+
+function renderWoche() {
+  const von = CONFIG.wocheVon, bis = CONFIG.wocheBis, hh = CONFIG.stundenHoehe;
+  const tage = [0, 1, 2, 3, 4, 5, 6].map(i => addDays(woche, i));
+  const wocheEnde = addDays(woche, 7);
+  const oben = {}, zeitlich = {};
+  tage.forEach(d => { oben[dayKey(d)] = []; zeitlich[dayKey(d)] = []; });
+
+  occurrences.forEach((o, idx) => {
+    if (!(o.end >= woche && o.start < wocheEnde)) return;
+    const mitternacht = !o.allDay && o.end > o.start && o.end.getHours() === 0 && o.end.getMinutes() === 0 && o.end.getSeconds() === 0;
+    const eEnd = mitternacht ? new Date(o.end.getTime() - 1) : o.end;
+    const mehrtaegig = dayKey(o.start) !== dayKey(eEnd);
+    tage.forEach(d => {
+      const k = dayKey(d);
+      if (!(o.start < addDays(d, 1) && o.end >= d)) return;
+      if (o.allDay || mehrtaegig) { oben[k].push(idx); return; }
+      const sm = o.start.getHours() * 60 + o.start.getMinutes();
+      const em = mitternacht ? 1440 : eEnd.getHours() * 60 + eEnd.getMinutes();
+      // Termine außerhalb des Zeitfensters stehen oben in der Zeile "außerhalb/ganztägig"
+      if ((em <= von * 60 && sm < von * 60) || sm >= bis * 60) { oben[k].push(idx); return; }
+      zeitlich[k].push({ idx, sm, em: Math.max(em, sm + 30) });
+    });
+  });
+
+  const heuteKey = dayKey(new Date());
+  const ende = addDays(woche, 6);
+  const titel = woche.getMonth() === ende.getMonth()
+    ? woche.getDate() + ". – " + ende.getDate() + ". " + MONATE[ende.getMonth()] + " " + ende.getFullYear()
+    : woche.getDate() + ". " + MONATE[woche.getMonth()].slice(0, 3) + ". – " + ende.getDate() + ". " + MONATE[ende.getMonth()].slice(0, 3) + ". " + ende.getFullYear();
+
+  let h = '<div class="monatskopf">' +
+    '<button type="button" id="vor" aria-label="Vorige Woche">‹</button>' +
+    '<h2>KW ' + kalenderwoche(woche) + " · " + titel + '</h2>' +
+    '<button type="button" id="heute-btn">Heute</button>' +
+    '<button type="button" id="nach" aria-label="Nächste Woche">›</button></div>';
+  h += '<div class="woche-scroll"><div class="woche">';
+
+  h += '<div class="w-kopf"><div></div>' + tage.map(d =>
+    '<div class="w-tag' + (dayKey(d) === heuteKey ? " heute" : "") + '"><span>' + WOCHENTAGE_KURZ[d.getDay()] + "</span> " + d.getDate() + "." + (d.getMonth() + 1) + ".</div>").join("") + "</div>";
+
+  if (tage.some(d => oben[dayKey(d)].length)) {
+    h += '<div class="w-oben"><div></div>' + tage.map(d => {
+      const k = dayKey(d);
+      return '<div class="w-obenzelle' + (k === heuteKey ? " heute" : "") + '">' + oben[k].map(ix => {
+        const o = occurrences[ix];
+        const zeit = o.allDay || dayKey(o.start) !== dayKey(d) ? "" : uhr(o.start) + " ";
+        return '<button type="button" class="w-chip" data-occ="' + ix + '" title="' + esc(o.title) + '">' + zeit + esc(o.title) + "</button>";
+      }).join("") + "</div>";
+    }).join("") + "</div>";
+  }
+
+  h += '<div class="w-koerper" style="--hh:' + hh + 'px"><div class="w-stunden">';
+  for (let s = von; s < bis; s++) h += '<div class="w-std">' + pad(s) + ":00</div>";
+  h += "</div>";
+  const jetzt = new Date();
+  const jetztMin = jetzt.getHours() * 60 + jetzt.getMinutes();
+  tage.forEach(d => {
+    const k = dayKey(d);
+    h += '<div class="w-spalte' + (k === heuteKey ? " heute" : "") + '" style="height:' + (bis - von) * hh + 'px">';
+    layoutTag(zeitlich[k]).forEach(it => {
+      const o = occurrences[it.idx];
+      const top = (Math.max(it.sm, von * 60) - von * 60) / 60 * hh;
+      const bottom = (Math.min(it.em, bis * 60) - von * 60) / 60 * hh;
+      const hoehe = Math.max(bottom - top, 18);
+      h += '<button type="button" class="wblock" data-occ="' + it.idx + '" title="' + esc(o.title) + '" style="top:' + top + "px;height:" + hoehe +
+        "px;left:calc(" + (it.col / it.cols * 100) + "% + 1px);width:calc(" + (100 / it.cols) + '% - 2px)">' +
+        "<b>" + esc(o.title) + "</b>" + uhr(o.start) + (o.end > o.start ? "–" + uhr(o.end) : "") + "</button>";
+    });
+    if (k === heuteKey && jetztMin >= von * 60 && jetztMin < bis * 60) {
+      h += '<div class="w-jetzt" style="top:' + (jetztMin - von * 60) / 60 * hh + 'px"></div>';
+    }
+    h += "</div>";
+  });
+  h += "</div></div></div>";
+  el("inhalt").innerHTML = h;
+
+  el("vor").addEventListener("click", () => { woche = addDays(woche, -7); renderWoche(); });
+  el("nach").addEventListener("click", () => { woche = addDays(woche, 7); renderWoche(); });
+  el("heute-btn").addEventListener("click", () => { woche = montagVon(new Date()); renderWoche(); });
+  el("inhalt").querySelectorAll("[data-occ]").forEach(b => b.addEventListener("click", () => zeigeTermin(occurrences[+b.dataset.occ])));
+}
+
 function render() {
   el("btn-liste").classList.toggle("aktiv", ansicht === "liste");
+  el("btn-woche").classList.toggle("aktiv", ansicht === "woche");
   el("btn-monat").classList.toggle("aktiv", ansicht === "monat");
-  if (ansicht === "liste") renderListe(); else renderMonat();
+  if (ansicht === "liste") renderListe();
+  else if (ansicht === "woche") renderWoche();
+  else renderMonat();
 }
 
 /* ---------- Dialog ---------- */
@@ -499,6 +652,7 @@ async function laden() {
 
 if (typeof document !== "undefined" && document.getElementById("app")) {
   el("btn-liste").addEventListener("click", () => { ansicht = "liste"; render(); });
+  el("btn-woche").addEventListener("click", () => { ansicht = "woche"; render(); });
   el("btn-monat").addEventListener("click", () => { ansicht = "monat"; render(); });
   el("dlg-zu").addEventListener("click", () => el("dlg").close());
   el("dlg").addEventListener("click", e => { if (e.target === el("dlg")) el("dlg").close(); });
