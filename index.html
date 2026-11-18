@@ -30,7 +30,25 @@ body {
   background: var(--hintergrund);
   line-height: 1.4;
 }
-#app { max-width: 960px; margin: 0 auto; padding: 12px; }
+/* Die Seite füllt genau den iFrame aus. Kopfzeile und Navigation bleiben stehen,
+   nur der Terminbereich scrollt – mit sichtbarer Leiste (auch auf dem Handy). */
+html, body { height: 100%; }
+#app {
+  max-width: 960px; margin: 0 auto; padding: 12px;
+  height: 100vh; height: 100dvh;
+  display: flex; flex-direction: column;
+}
+.kopf, #nav, .fuss { flex: none; }
+#inhalt {
+  flex: 1 1 auto; min-height: 0; overflow: auto;
+  -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+}
+#inhalt::-webkit-scrollbar { width: 12px; height: 12px; }
+#inhalt::-webkit-scrollbar-track { background: var(--akzent-hell); border-radius: 6px; }
+#inhalt::-webkit-scrollbar-thumb { background: var(--akzent); border-radius: 6px; border: 2px solid var(--akzent-hell); }
+@supports not selector(::-webkit-scrollbar) {
+  #inhalt { scrollbar-color: var(--akzent) var(--akzent-hell); scrollbar-width: auto; }
+}
 
 /* Kopfzeile mit Umschalter */
 .kopf { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
@@ -87,8 +105,10 @@ button:focus-visible { outline: 3px solid var(--akzent-hell); outline-offset: 1p
 .mehr { display: block; color: var(--akzent); font-size: .8em; }
 
 /* Wochenansicht */
-.woche-scroll { overflow-x: auto; border: 1px solid var(--linie); border-radius: var(--radius); }
+.woche-scroll { border: 1px solid var(--linie); border-radius: var(--radius); }
 .woche { min-width: 640px; }
+.w-sticky { position: sticky; top: 0; z-index: 3; background: var(--hintergrund); }
+.w-stunden { position: sticky; left: 0; z-index: 1; background: var(--hintergrund); }
 .w-kopf, .w-oben, .w-koerper { display: grid; grid-template-columns: 46px repeat(7, minmax(0, 1fr)); }
 .w-kopf { background: var(--akzent-hell); border-bottom: 1px solid var(--linie); }
 .w-tag { text-align: center; padding: 6px 2px; font-size: .85em; border-left: 1px solid var(--linie); }
@@ -151,6 +171,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
       <button id="btn-monat" type="button">Monat</button>
     </div>
   </div>
+  <div id="nav"></div>
   <div id="inhalt"><p class="hinweis">Termine werden geladen …</p></div>
   <div class="fuss" id="fuss"></div>
 </div>
@@ -483,6 +504,7 @@ function renderMonat() {
     if (idxs.length === 1) zeigeTermin(occurrences[idxs[0]]);
     else zeigeTagesliste(d, idxs);
   }));
+  navAuslagern();
 }
 
 /* ---------- Wochenansicht ---------- */
@@ -551,7 +573,7 @@ function renderWoche() {
     '<h2>KW ' + kalenderwoche(woche) + " · " + titel + '</h2>' +
     '<button type="button" id="heute-btn">Heute</button>' +
     '<button type="button" id="nach" aria-label="Nächste Woche">›</button></div>';
-  h += '<div class="woche-scroll"><div class="woche">';
+  h += '<div class="woche-scroll"><div class="woche"><div class="w-sticky">';
 
   h += '<div class="w-kopf"><div></div>' + tage.map(d =>
     '<div class="w-tag' + (dayKey(d) === heuteKey ? " heute" : "") + '"><span>' + WOCHENTAGE_KURZ[d.getDay()] + "</span> " + d.getDate() + "." + (d.getMonth() + 1) + ".</div>").join("") + "</div>";
@@ -567,6 +589,7 @@ function renderWoche() {
     }).join("") + "</div>";
   }
 
+  h += "</div>"; // Ende des festen Kopfbereichs
   h += '<div class="w-koerper" style="--hh:' + hh + 'px"><div class="w-stunden">';
   for (let s = von; s < bis; s++) h += '<div class="w-std">' + pad(s) + ":00</div>";
   h += "</div>";
@@ -596,9 +619,18 @@ function renderWoche() {
   el("nach").addEventListener("click", () => { woche = addDays(woche, 7); renderWoche(); });
   el("heute-btn").addEventListener("click", () => { woche = montagVon(new Date()); renderWoche(); });
   el("inhalt").querySelectorAll("[data-occ]").forEach(b => b.addEventListener("click", () => zeigeTermin(occurrences[+b.dataset.occ])));
+  navAuslagern();
+}
+
+// Die Monats-/Wochen-Navigation steht außerhalb des scrollenden Bereichs
+function navAuslagern() {
+  const k = el("inhalt").querySelector(".monatskopf");
+  el("nav").innerHTML = "";
+  if (k) el("nav").appendChild(k);
 }
 
 function render() {
+  el("nav").innerHTML = "";
   el("btn-liste").classList.toggle("aktiv", ansicht === "liste");
   el("btn-woche").classList.toggle("aktiv", ansicht === "woche");
   el("btn-monat").classList.toggle("aktiv", ansicht === "monat");
