@@ -1,23 +1,509 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Termine</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vereinskalender</title>
+<style>
+/* ============================================================
+   DESIGN – hier kannst du Farben, Schrift und Abstände ändern
+   ============================================================ */
+:root {
+  --akzent: #1b5e9b;          /* Hauptfarbe (Buttons, Datumsfeld, Termin-Balken) */
+  --akzent-hell: #e8f1f9;     /* helle Variante der Hauptfarbe */
+  --text: #1f2933;            /* Textfarbe */
+  --text-leise: #667085;      /* Nebentext (Uhrzeit, Ort) */
+  --linie: #dde3ea;           /* Rahmen und Trennlinien */
+  --hintergrund: #ffffff;     /* Seitenhintergrund (transparent geht auch) */
+  --heute: #fff6d6;           /* Hervorhebung des heutigen Tages */
+  --radius: 10px;             /* Rundung der Ecken */
+  --schrift: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --schriftgroesse: 16px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--schrift);
+  font-size: var(--schriftgroesse);
+  color: var(--text);
+  background: var(--hintergrund);
+  line-height: 1.4;
+}
+#app { max-width: 960px; margin: 0 auto; padding: 12px; }
+
+/* Kopfzeile mit Umschalter */
+.kopf { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.kopf h1 { font-size: 1.25em; margin: 0; }
+.knoepfe { display: flex; gap: 6px; flex-wrap: wrap; }
+button {
+  font: inherit; color: var(--akzent); background: #fff;
+  border: 1px solid var(--akzent); border-radius: 999px;
+  padding: 6px 14px; cursor: pointer;
+}
+button:hover { background: var(--akzent-hell); }
+button.aktiv { background: var(--akzent); color: #fff; }
+button:focus-visible { outline: 3px solid var(--akzent-hell); outline-offset: 1px; }
+
+/* Listenansicht */
+.monatstitel { font-size: 1.05em; font-weight: 700; margin: 22px 0 8px; padding-bottom: 4px; border-bottom: 2px solid var(--akzent); }
+.termin {
+  display: flex; gap: 14px; width: 100%; text-align: left;
+  background: #fff; color: var(--text);
+  border: 1px solid var(--linie); border-radius: var(--radius);
+  padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+}
+.termin:hover { background: var(--akzent-hell); }
+.datumsfeld {
+  flex: 0 0 56px; text-align: center; background: var(--akzent); color: #fff;
+  border-radius: 8px; padding: 6px 0; line-height: 1.1;
+}
+.datumsfeld .tag { display: block; font-size: 1.5em; font-weight: 700; }
+.datumsfeld .wochentag { display: block; font-size: .75em; text-transform: uppercase; letter-spacing: .04em; }
+.termin .inhalt { min-width: 0; }
+.termin .titel { font-weight: 600; }
+.termin .zeit, .termin .ort { color: var(--text-leise); font-size: .9em; }
+
+/* Monatsansicht */
+.monatskopf { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.monatskopf h2 { margin: 0; font-size: 1.15em; text-align: center; flex: 1; }
+.raster { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--linie); border-left: 1px solid var(--linie); }
+.raster .wt { background: var(--akzent-hell); font-weight: 600; font-size: .8em; text-align: center; padding: 6px 0; border-right: 1px solid var(--linie); border-bottom: 1px solid var(--linie); }
+.zelle {
+  min-height: 92px; padding: 3px; text-align: left; display: block; width: 100%;
+  background: #fff; color: var(--text); border: 0; border-radius: 0;
+  border-right: 1px solid var(--linie); border-bottom: 1px solid var(--linie);
+  cursor: pointer; font-size: .85em;
+}
+.zelle:hover { background: #f6f9fc; }
+.zelle.fremd { background: #f7f8fa; color: #98a2b3; }
+.zelle.heute { background: var(--heute); }
+.zelle .nr { display: block; font-weight: 600; margin-bottom: 2px; }
+.chip {
+  display: block; background: var(--akzent); color: #fff; border-radius: 4px;
+  padding: 1px 5px; margin-bottom: 2px; font-size: .85em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mehr { display: block; color: var(--akzent); font-size: .8em; }
+
+/* Dialog */
+dialog { border: 0; border-radius: var(--radius); padding: 0; max-width: min(520px, 94vw); width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
+dialog::backdrop { background: rgba(0,0,0,.4); }
+.dlg-innen { padding: 18px 20px 20px; }
+.dlg-innen h3 { margin: 0 40px 10px 0; font-size: 1.15em; }
+.dlg-innen .zeile { margin: 6px 0; }
+.dlg-innen .label { color: var(--text-leise); font-size: .85em; display: block; }
+.dlg-innen a { color: var(--akzent); word-break: break-all; }
+.dlg-zu { position: absolute; top: 10px; right: 12px; padding: 2px 10px; }
+.dlg-liste .termin { margin-bottom: 6px; }
+
+.hinweis { padding: 16px; text-align: center; color: var(--text-leise); }
+.fehler { color: #b42318; }
+.fuss { margin-top: 14px; text-align: right; color: var(--text-leise); font-size: .75em; }
+
+/* Handy: Termine in der Monatsansicht nur als Punkte, Details per Antippen */
+@media (max-width: 600px) {
+  #app { padding: 8px; }
+  .zelle { min-height: 56px; }
+  .chip { height: 6px; padding: 0; font-size: 0; display: inline-block; width: 6px; border-radius: 50%; margin: 0 2px 0 0; }
+  .mehr { display: none; }
+}
+</style>
 </head>
 <body>
-  <main id="kalender" aria-live="polite"></main>
+<div id="app">
+  <div class="kopf">
+    <h1 id="titel"></h1>
+    <div class="knoepfe">
+      <button id="btn-liste" type="button">Liste</button>
+      <button id="btn-monat" type="button">Monat</button>
+    </div>
+  </div>
+  <div id="inhalt"><p class="hinweis">Termine werden geladen …</p></div>
+  <div class="fuss" id="fuss"></div>
+</div>
 
-  <script src="calendar.js"></script>
-  <script>
-    // ===== Hier einstellen =====
-    Vereinsheim.load(document.getElementById("vereinsheim"), {
-      feedUrl: "https://vereinsheim.turnen-f05.workers.dev", // Adresse deines Cloudflare Workers
-      maxEvents: 40,          // wie viele kommende Termine angezeigt werden (0 = alle)
-      showDescription: true,  // Beschreibung als aufklappbares "Mehr Infos"
-      emptyText: "Aktuell sind keine Termine eingetragen."
+<dialog id="dlg">
+  <div class="dlg-innen">
+    <button class="dlg-zu" id="dlg-zu" type="button" aria-label="Schließen">✕</button>
+    <div id="dlg-inhalt"></div>
+  </div>
+</dialog>
+
+<script>
+/* ============================================================
+   EINSTELLUNGEN
+   ============================================================ */
+const CONFIG = {
+  workerUrl: "https://vereinsheim.turnen-f05.workers.dev",
+  titel: "Termine",
+  startAnsicht: "liste",   // "liste" oder "monat"
+  listeMonate: 12          // so weit in die Zukunft zeigt die Liste
+};
+
+/* ============================================================
+   ICS-LESEN (Parser)
+   ============================================================ */
+const WD = ["SU","MO","TU","WE","TH","FR","SA"];
+
+function unfold(t) { return t.replace(/\r\n/g, "\n").replace(/\r/g, "\n").replace(/\n[ \t]/g, ""); }
+function unescapeText(s) { return s.replace(/\\n/gi, "\n").replace(/\\([,;\\])/g, "$1"); }
+
+function parseLine(line) {
+  let inQ = false, colon = -1;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') inQ = !inQ;
+    else if (c === ":" && !inQ) { colon = i; break; }
+  }
+  if (colon < 0) return null;
+  const left = line.slice(0, colon), value = line.slice(colon + 1);
+  const parts = left.split(";");
+  const name = parts.shift().toUpperCase();
+  const params = {};
+  parts.forEach(p => {
+    const i = p.indexOf("=");
+    if (i > 0) params[p.slice(0, i).toUpperCase()] = p.slice(i + 1).replace(/"/g, "");
+  });
+  return { name, params, value };
+}
+
+function parseDate(value) {
+  const m = value.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/);
+  if (!m) return null;
+  const [, y, mo, d, h, mi, s, z] = m;
+  if (h === undefined) return { date: new Date(+y, +mo - 1, +d), allDay: true };
+  if (z) return { date: new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi, +(s || 0))), allDay: false };
+  return { date: new Date(+y, +mo - 1, +d, +h, +mi, +(s || 0)), allDay: false };
+}
+
+function parseDuration(v) {
+  const m = v.match(/^P(?:(\d+)W)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/);
+  if (!m) return 0;
+  const [, w, d, h, mi, s] = m.map(x => +x || 0);
+  return ((w * 7 + d) * 86400 + h * 3600 + mi * 60 + s) * 1000;
+}
+
+function parseRule(s) {
+  const r = {};
+  s.split(";").forEach(p => { const i = p.indexOf("="); if (i > 0) r[p.slice(0, i).toUpperCase()] = p.slice(i + 1); });
+  return r;
+}
+
+function dayKey(d) { return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate(); }
+function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n, d.getHours(), d.getMinutes(), d.getSeconds()); }
+function startOfDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+
+function parseICS(text) {
+  const events = [];
+  let cur = null;
+  for (const line of unfold(text).split("\n")) {
+    if (line === "BEGIN:VEVENT") { cur = { exdates: [] }; continue; }
+    if (line === "END:VEVENT") { if (cur && cur.start) events.push(finishEvent(cur)); cur = null; continue; }
+    if (!cur) continue;
+    const p = parseLine(line);
+    if (!p) continue;
+    switch (p.name) {
+      case "UID": cur.uid = p.value; break;
+      case "SUMMARY": cur.title = unescapeText(p.value); break;
+      case "DESCRIPTION": cur.description = unescapeText(p.value); break;
+      case "LOCATION": cur.location = unescapeText(p.value); break;
+      case "URL": cur.url = p.value; break;
+      case "STATUS": cur.status = p.value.toUpperCase(); break;
+      case "DTSTART": { const d = parseDate(p.value); if (d) { cur.start = d.date; cur.allDay = d.allDay; } break; }
+      case "DTEND": { const d = parseDate(p.value); if (d) cur.end = d.date; break; }
+      case "DURATION": cur.durationMs = parseDuration(p.value); break;
+      case "RRULE": cur.rrule = parseRule(p.value); break;
+      case "EXDATE": p.value.split(",").forEach(v => { const d = parseDate(v); if (d) cur.exdates.push(dayKey(d.date)); }); break;
+      case "RECURRENCE-ID": { const d = parseDate(p.value); if (d) cur.recurrenceId = dayKey(d.date); break; }
+    }
+  }
+  return events;
+}
+
+function finishEvent(ev) {
+  ev.title = ev.title || "(ohne Titel)";
+  if (ev.allDay) {
+    let days = 1;
+    if (ev.end) days = Math.max(1, Math.round((ev.end - ev.start) / 864e5));
+    else if (ev.durationMs) days = Math.max(1, Math.round(ev.durationMs / 864e5));
+    ev.days = days;
+  } else {
+    ev.durMs = ev.end ? Math.max(0, ev.end - ev.start) : (ev.durationMs || 0);
+  }
+  return ev;
+}
+
+/* ---------- Wiederholende Termine auflösen ---------- */
+function nthWeekdayDates(y, m, spec) {
+  const last = new Date(y, m + 1, 0).getDate();
+  const days = [];
+  for (let d = 1; d <= last; d++) if (new Date(y, m, d).getDay() === spec.d) days.push(d);
+  if (spec.n === 0) return days;
+  const idx = spec.n > 0 ? spec.n - 1 : days.length + spec.n;
+  return days[idx] !== undefined ? [days[idx]] : [];
+}
+
+function expand(ev, winStart, winEnd) {
+  const out = [];
+  const mk = s => {
+    const e = ev.allDay ? new Date(addDays(s, ev.days).getTime() - 1) : new Date(s.getTime() + ev.durMs);
+    return Object.assign({}, ev, { start: s, end: e });
+  };
+  if (!ev.rrule) {
+    const o = mk(ev.start);
+    if (o.end >= winStart && o.start <= winEnd) out.push(o);
+    return out;
+  }
+  const r = ev.rrule;
+  const interval = Math.max(1, +r.INTERVAL || 1);
+  const freq = r.FREQ;
+  const count = r.COUNT ? +r.COUNT : Infinity;
+  let untilEnd = null;
+  if (r.UNTIL) {
+    const u = parseDate(r.UNTIL);
+    if (u) untilEnd = u.allDay ? addDays(u.date, 1) : new Date(u.date.getTime() + 1);
+  }
+  const byday = r.BYDAY ? r.BYDAY.split(",").map(s => {
+    const m = s.match(/^([+-]?\d+)?(MO|TU|WE|TH|FR|SA|SU)$/);
+    return m ? { n: m[1] ? +m[1] : 0, d: WD.indexOf(m[2]) } : null;
+  }).filter(Boolean) : null;
+  const bymd = r.BYMONTHDAY ? r.BYMONTHDAY.split(",").map(Number) : null;
+  const bymonth = r.BYMONTH ? r.BYMONTH.split(",").map(Number) : null;
+
+  const sd = ev.start;
+  const H = sd.getHours(), Mi = sd.getMinutes(), S = sd.getSeconds();
+  const at = (y, m, d) => new Date(y, m, d, H, Mi, S);
+  let n = 0;
+
+  for (let k = 0; k < 5000; k++) {
+    let cands = [], periodStart;
+    if (freq === "DAILY") {
+      const d = at(sd.getFullYear(), sd.getMonth(), sd.getDate() + k * interval);
+      periodStart = d;
+      if (!byday || byday.some(b => b.d === d.getDay())) cands = [d];
+    } else if (freq === "WEEKLY") {
+      const monOff = (sd.getDay() + 6) % 7;
+      const base = new Date(sd.getFullYear(), sd.getMonth(), sd.getDate() - monOff + k * interval * 7);
+      periodStart = base;
+      const wds = byday ? byday.map(b => b.d) : [sd.getDay()];
+      cands = wds.map(w => at(base.getFullYear(), base.getMonth(), base.getDate() + ((w + 6) % 7))).sort((a, b) => a - b);
+    } else if (freq === "MONTHLY" || freq === "YEARLY") {
+      const y0 = freq === "YEARLY" ? sd.getFullYear() + k * interval : sd.getFullYear();
+      const months = freq === "YEARLY"
+        ? (bymonth ? bymonth.map(x => x - 1) : [sd.getMonth()])
+        : [sd.getMonth() + k * interval];
+      for (const mm of months) {
+        const first = new Date(y0, mm, 1);
+        const y = first.getFullYear(), m = first.getMonth();
+        if (freq === "MONTHLY" && bymonth && !bymonth.includes(m + 1)) continue;
+        const last = new Date(y, m + 1, 0).getDate();
+        let list = [];
+        if (byday) byday.forEach(b => list.push(...nthWeekdayDates(y, m, b)));
+        else if (bymd) bymd.forEach(x => { const dd = x > 0 ? x : last + 1 + x; if (dd >= 1 && dd <= last) list.push(dd); });
+        else if (sd.getDate() <= last) list = [sd.getDate()];
+        list.sort((a, b) => a - b).forEach(dd => cands.push(at(y, m, dd)));
+      }
+      periodStart = freq === "YEARLY" ? new Date(y0, 0, 1) : new Date(sd.getFullYear(), sd.getMonth() + k * interval, 1);
+    } else {
+      return out; // unbekannte Wiederholungsart
+    }
+    if (periodStart > winEnd) break;
+    for (const c of cands) {
+      if (c < sd) continue;
+      if (untilEnd && c >= untilEnd) return out;
+      if (++n > count) return out;
+      if (ev.exdates.includes(dayKey(c))) continue;
+      const o = mk(c);
+      if (o.end >= winStart && o.start <= winEnd) out.push(o);
+    }
+  }
+  return out;
+}
+
+function buildOccurrences(events, winStart, winEnd) {
+  const overrides = new Set();
+  events.forEach(e => { if (e.recurrenceId) overrides.add(e.uid + "|" + e.recurrenceId); });
+  const all = [];
+  for (const e of events) {
+    if (e.status === "CANCELLED") continue;
+    for (const o of expand(e, winStart, winEnd)) {
+      if (e.rrule && overrides.has(e.uid + "|" + dayKey(o.start))) continue;
+      all.push(o);
+    }
+  }
+  return all.sort((a, b) => a.start - b.start || a.title.localeCompare(b.title, "de"));
+}
+
+/* ============================================================
+   ANZEIGE
+   ============================================================ */
+const MONATE = ["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+const WOCHENTAGE_KURZ = ["So","Mo","Di","Mi","Do","Fr","Sa"];
+
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+function linkify(text) {
+  return esc(text)
+    .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
+    .replace(/\n/g, "<br>");
+}
+const pad = n => String(n).padStart(2, "0");
+const uhr = d => pad(d.getHours()) + ":" + pad(d.getMinutes());
+const datumKurz = d => d.getDate() + "." + (d.getMonth() + 1) + ".";
+const datumLang = d => WOCHENTAGE_KURZ[d.getDay()] + ", " + d.getDate() + ". " + MONATE[d.getMonth()] + " " + d.getFullYear();
+
+function zeitText(o) {
+  const mehrtaegig = dayKey(o.start) !== dayKey(o.end);
+  if (o.allDay) return mehrtaegig ? datumKurz(o.start) + " – " + datumKurz(o.end) + " (ganztägig)" : "ganztägig";
+  if (mehrtaegig) return datumKurz(o.start) + " " + uhr(o.start) + " Uhr – " + datumKurz(o.end) + " " + uhr(o.end) + " Uhr";
+  return o.end > o.start ? uhr(o.start) + " – " + uhr(o.end) + " Uhr" : uhr(o.start) + " Uhr";
+}
+
+let occurrences = [];
+let ansicht = CONFIG.startAnsicht === "monat" ? "monat" : "liste";
+let monat = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+const el = id => document.getElementById(id);
+
+function terminKnopf(o, idx) {
+  return '<button type="button" class="termin" data-occ="' + idx + '">' +
+    '<span class="datumsfeld"><span class="wochentag">' + WOCHENTAGE_KURZ[o.start.getDay()] + '</span><span class="tag">' + o.start.getDate() + '</span></span>' +
+    '<span class="inhalt"><span class="titel">' + esc(o.title) + '</span><br>' +
+    '<span class="zeit">' + esc(zeitText(o)) + '</span>' +
+    (o.location ? '<br><span class="ort">📍 ' + esc(o.location) + '</span>' : '') +
+    '</span></button>';
+}
+
+function renderListe() {
+  const heute = startOfDay(new Date());
+  const bis = new Date(heute.getFullYear(), heute.getMonth() + CONFIG.listeMonate, heute.getDate());
+  const liste = occurrences.filter(o => o.end >= heute && o.start < bis);
+  if (!liste.length) { el("inhalt").innerHTML = '<p class="hinweis">Zurzeit sind keine Termine eingetragen.</p>'; return; }
+  let html = "", letzter = "";
+  liste.forEach(o => {
+    const key = o.start.getFullYear() + "-" + o.start.getMonth();
+    if (key !== letzter) { html += '<div class="monatstitel">' + MONATE[o.start.getMonth()] + " " + o.start.getFullYear() + "</div>"; letzter = key; }
+    html += terminKnopf(o, occurrences.indexOf(o));
+  });
+  el("inhalt").innerHTML = html;
+  el("inhalt").querySelectorAll("[data-occ]").forEach(b => b.addEventListener("click", () => zeigeTermin(occurrences[+b.dataset.occ])));
+}
+
+function renderMonat() {
+  const y = monat.getFullYear(), m = monat.getMonth();
+  const ersterWt = (new Date(y, m, 1).getDay() + 6) % 7;
+  const tageImMonat = new Date(y, m + 1, 0).getDate();
+  const zeilen = Math.ceil((ersterWt + tageImMonat) / 7);
+  const startTag = new Date(y, m, 1 - ersterWt);
+
+  // Termine pro Tag sammeln
+  const proTag = {};
+  occurrences.forEach((o, idx) => {
+    let d = startOfDay(o.start);
+    const ende = startOfDay(o.end);
+    for (let i = 0; i < 60 && d <= ende; i++) {
+      (proTag[dayKey(d)] = proTag[dayKey(d)] || []).push(idx);
+      d = addDays(d, 1);
+    }
+  });
+
+  let html = '<div class="monatskopf">' +
+    '<button type="button" id="vor" aria-label="Voriger Monat">‹</button>' +
+    '<h2>' + MONATE[m] + " " + y + '</h2>' +
+    '<button type="button" id="heute-btn">Heute</button>' +
+    '<button type="button" id="nach" aria-label="Nächster Monat">›</button></div>';
+  html += '<div class="raster">';
+  ["Mo","Di","Mi","Do","Fr","Sa","So"].forEach(w => html += '<div class="wt">' + w + "</div>");
+  const heuteKey = dayKey(new Date());
+  for (let i = 0; i < zeilen * 7; i++) {
+    const d = addDays(startTag, i);
+    const key = dayKey(d);
+    const idxs = proTag[key] || [];
+    let cls = "zelle";
+    if (d.getMonth() !== m) cls += " fremd";
+    if (key === heuteKey) cls += " heute";
+    html += '<button type="button" class="' + cls + '" data-tag="' + key + '"><span class="nr">' + d.getDate() + "</span>";
+    idxs.slice(0, 3).forEach(ix => {
+      const o = occurrences[ix];
+      html += '<span class="chip" title="' + esc(o.title) + '">' + (o.allDay ? "" : uhr(o.start) + " ") + esc(o.title) + "</span>";
     });
-  </script>
+    if (idxs.length > 3) html += '<span class="mehr">+' + (idxs.length - 3) + " weitere</span>";
+    html += "</button>";
+  }
+  html += "</div>";
+  el("inhalt").innerHTML = html;
+
+  el("vor").addEventListener("click", () => { monat = new Date(y, m - 1, 1); renderMonat(); });
+  el("nach").addEventListener("click", () => { monat = new Date(y, m + 1, 1); renderMonat(); });
+  el("heute-btn").addEventListener("click", () => { const n = new Date(); monat = new Date(n.getFullYear(), n.getMonth(), 1); renderMonat(); });
+  el("inhalt").querySelectorAll("[data-tag]").forEach(b => b.addEventListener("click", () => {
+    const idxs = proTag[+b.dataset.tag] || [];
+    if (!idxs.length) return;
+    const k = +b.dataset.tag;
+    const d = new Date(Math.floor(k / 10000), Math.floor(k / 100) % 100 - 1, k % 100);
+    if (idxs.length === 1) zeigeTermin(occurrences[idxs[0]]);
+    else zeigeTagesliste(d, idxs);
+  }));
+}
+
+function render() {
+  el("btn-liste").classList.toggle("aktiv", ansicht === "liste");
+  el("btn-monat").classList.toggle("aktiv", ansicht === "monat");
+  if (ansicht === "liste") renderListe(); else renderMonat();
+}
+
+/* ---------- Dialog ---------- */
+function zeigeTermin(o) {
+  let html = "<h3>" + esc(o.title) + "</h3>";
+  html += '<div class="zeile"><span class="label">Datum</span>' + esc(datumLang(o.start)) + "</div>";
+  html += '<div class="zeile"><span class="label">Zeit</span>' + esc(zeitText(o)) + "</div>";
+  if (o.location) html += '<div class="zeile"><span class="label">Ort</span>' + esc(o.location) + "</div>";
+  if (o.description && o.description.trim()) html += '<div class="zeile"><span class="label">Beschreibung</span>' + linkify(o.description.trim()) + "</div>";
+  if (o.url && /^https?:\/\//i.test(o.url)) html += '<div class="zeile"><span class="label">Link</span><a href="' + esc(o.url) + '" target="_blank" rel="noopener noreferrer">' + esc(o.url) + "</a></div>";
+  oeffneDialog(html);
+}
+function zeigeTagesliste(d, idxs) {
+  let html = "<h3>" + esc(datumLang(d)) + '</h3><div class="dlg-liste">';
+  idxs.forEach(ix => html += terminKnopf(occurrences[ix], ix));
+  html += "</div>";
+  oeffneDialog(html);
+  el("dlg-inhalt").querySelectorAll("[data-occ]").forEach(b => b.addEventListener("click", () => zeigeTermin(occurrences[+b.dataset.occ])));
+}
+function oeffneDialog(html) {
+  el("dlg-inhalt").innerHTML = html;
+  const dlg = el("dlg");
+  if (!dlg.open) dlg.showModal();
+}
+
+/* ---------- Start ---------- */
+async function laden() {
+  el("titel").textContent = CONFIG.titel;
+  try {
+    const res = await fetch(CONFIG.workerUrl);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const text = await res.text();
+    const events = parseICS(text);
+    const jetzt = new Date();
+    const winStart = new Date(jetzt.getFullYear(), jetzt.getMonth() - 12, 1);
+    const winEnd = new Date(jetzt.getFullYear(), jetzt.getMonth() + 25, 0, 23, 59, 59);
+    occurrences = buildOccurrences(events, winStart, winEnd);
+    el("fuss").textContent = "Stand: " + datumKurz(jetzt) + " " + uhr(jetzt) + " Uhr";
+    render();
+  } catch (err) {
+    el("inhalt").innerHTML = '<p class="hinweis fehler">Der Kalender konnte nicht geladen werden. Bitte später erneut versuchen.</p>';
+    console.error("Kalender:", err);
+  }
+}
+
+if (typeof document !== "undefined" && document.getElementById("app")) {
+  el("btn-liste").addEventListener("click", () => { ansicht = "liste"; render(); });
+  el("btn-monat").addEventListener("click", () => { ansicht = "monat"; render(); });
+  el("dlg-zu").addEventListener("click", () => el("dlg").close());
+  el("dlg").addEventListener("click", e => { if (e.target === el("dlg")) el("dlg").close(); });
+  laden();
+}
+</script>
 </body>
 </html>
