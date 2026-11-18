@@ -32,9 +32,9 @@ body {
 }
 /* Die Seite füllt genau den iFrame aus. Kopfzeile und Navigation bleiben stehen,
    nur der Terminbereich scrollt – mit sichtbarer Leiste (auch auf dem Handy). */
-html, body { height: 100%; }
+html, body { height: 100%; max-width: 100%; overflow-x: hidden; }
 #app {
-  max-width: 960px; margin: 0 auto; padding: 12px;
+  width: 100%; max-width: 960px; margin: 0 auto; padding: 12px;
   height: 100vh; height: 100dvh;
   display: flex; flex-direction: column;
 }
@@ -155,6 +155,14 @@ button:focus-visible { outline: 3px solid var(--akzent-hell); outline-offset: 1p
 
 .w-tag em { font-style: normal; margin-left: .3em; }
 
+/* Auf kleinen Bildschirmen: Umschalter über die volle Breite, nichts läuft aus dem Bild */
+@media (max-width: 560px) {
+  .kopf { flex-direction: column; align-items: stretch; gap: 6px; }
+  .kopf h1 { display: none; }
+  .knoepfe { width: 100%; flex-wrap: nowrap; }
+  .knoepfe button { flex: 1 1 0; padding: 9px 4px; }
+}
+
 /* Auf kleinen Bildschirmen etwas größere Schrift in der Woche */
 @media (max-width: 700px) {
   .w-tag { font-size: .9em; }
@@ -192,8 +200,8 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
   <div class="kopf">
     <h1 id="titel"></h1>
     <div class="knoepfe">
-      <button id="btn-liste" type="button">Liste</button>
       <button id="btn-woche" type="button">Woche</button>
+      <button id="btn-liste" type="button">Liste</button>
       <button id="btn-monat" type="button">Monat</button>
     </div>
   </div>
@@ -223,7 +231,7 @@ dialog::backdrop { background: rgba(0,0,0,.4); }
 const CONFIG = {
   workerUrl: "https://vereinsheim.turnen-f05.workers.dev",
   titel: "Termine",
-  startAnsicht: "liste",   // "liste", "woche" oder "monat"
+  startAnsicht: "woche",   // "woche", "liste" oder "monat"
   listeMonate: 12,         // so weit in die Zukunft zeigt die Liste
   wocheVon: 7,             // Wochenansicht beginnt um 7 Uhr
   wocheBis: 23,            // Wochenansicht endet um 23 Uhr
