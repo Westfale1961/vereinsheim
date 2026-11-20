@@ -1,1 +1,563 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>TSV Simmozheim – Startseite</title>
 
+<!--
+  ============================================================
+  ANLEITUNG (kann gelöscht werden)
+
+  Diese Seite wird per iFrame in die Startseite der Vereinshomepage eingebunden.
+  Oben stehen fünf Kacheln (Abteilungen, Aktuelles, Termine, Kontakt, Mitglied werden),
+  darunter erscheint der Inhalt der gewählten Kachel.
+  Bei "Abteilungen": Abteilung wählen -> Gruppe wählen -> Informationen zur Gruppe.
+
+  Das Vereinslogo kommt aus dem Kopfbereich der Homepage (nicht aus dieser Seite).
+
+  Alles, was ihr pflegt, steht im Skript ganz unten:
+    1. EINSTELLUNGEN   Adresse der Homepage, Kalender-Adresse, Kontaktdaten
+    2. NEWS            die Meldungen unter "Aktuelles"
+    3. ABTEILUNGEN     Abteilungen, Gruppen und deren Infos
+       Zu jeder Gruppe gehört der Link zur bestehenden Seite auf der Homepage.
+       Zusätzlich kann eine Kurzinfo eingetragen werden, die dann direkt
+       unter der Gruppe angezeigt wird (Beispiel im Skript).
+
+  Farben: unten im :root-Block (--farbe-...).
+  Die Seite braucht keine externen Dateien, Schriften oder Skripte (datenschutzfreundlich).
+  ============================================================
+-->
+
+<style>
+:root{
+  --farbe-primaer:#4460af;        /* Hauptfarbe (Blau der Homepage) */
+  --farbe-primaer-dunkel:#2a3b78;
+  --farbe-primaer-hell:#e9edf8;
+  --farbe-akzent:#d43888;         /* Akzent (Pink der Homepage) */
+  --farbe-text:#1c2433;
+  --farbe-text-hell:#566074;
+  --farbe-flaeche:#f3f5fa;        /* Hintergrund (passt zur Homepage-Gestaltung) */
+  --farbe-karte:#ffffff;
+  --farbe-linie:#dde3ee;
+  --radius:16px;
+  --schatten:0 6px 24px rgba(42,59,120,.10);
+}
+*{box-sizing:border-box}
+html{background:var(--farbe-flaeche)}
+body{
+  margin:0;padding:4px 2px 24px;background:var(--farbe-flaeche);color:var(--farbe-text);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:17px;line-height:1.55;
+}
+a{color:var(--farbe-primaer)}
+button{font:inherit;color:inherit}
+a:focus-visible,button:focus-visible{outline:3px solid var(--farbe-akzent);outline-offset:3px;border-radius:8px}
+.app{max-width:1100px;margin:0 auto}
+
+/* ---------- Kacheln ---------- */
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(9em,1fr));gap:12px;margin:0 0 20px}
+.tile{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
+  padding:16px 8px;min-height:6.2em;text-align:center;cursor:pointer;
+  background:var(--farbe-karte);border:1px solid var(--farbe-linie);border-radius:var(--radius);
+  font-weight:700;font-size:1rem;line-height:1.2;
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease,background .15s ease,color .15s ease;
+}
+.tile svg{width:28px;height:28px;fill:none;stroke:var(--farbe-primaer);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tile:hover{transform:translateY(-3px);box-shadow:var(--schatten);border-color:var(--farbe-primaer)}
+.tile[aria-current="true"]{background:var(--farbe-primaer);border-color:var(--farbe-primaer);color:#fff;box-shadow:var(--schatten)}
+.tile[aria-current="true"] svg{stroke:#fff}
+
+/* ---------- Inhaltsbereich ---------- */
+.panel{
+  background:var(--farbe-karte);border:1px solid var(--farbe-linie);border-radius:var(--radius);
+  box-shadow:var(--schatten);padding:28px;min-height:320px;
+}
+.panel > *{animation:ein .18s ease}
+@keyframes ein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.panel h2{margin:0 0 6px;font-size:clamp(1.4rem,3vw,1.9rem);line-height:1.2;letter-spacing:-.01em}
+.panel h2:focus{outline:none}
+.panel h3.kat{margin:26px 0 10px;font-size:.82rem;font-weight:700;color:var(--farbe-primaer);text-transform:uppercase;letter-spacing:.07em}
+.lead{margin:0 0 20px;color:var(--farbe-text-hell);max-width:62ch}
+
+/* Pfad (Brotkrumen) */
+.krumen{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin:0 0 14px;font-size:.92rem;color:var(--farbe-text-hell)}
+.krumen button{background:none;border:0;padding:2px 4px;cursor:pointer;color:var(--farbe-primaer);font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.krumen button:hover{color:var(--farbe-akzent)}
+.krumen .trenner{color:var(--farbe-linie)}
+.krumen [aria-current]{font-weight:700;color:var(--farbe-text)}
+
+/* Auswahlkarten */
+.karten{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.karte{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;cursor:pointer;
+  padding:18px 20px;background:var(--farbe-karte);border:1px solid var(--farbe-linie);border-radius:14px;
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;
+}
+.karte:hover{transform:translateY(-3px);box-shadow:var(--schatten);border-color:var(--farbe-primaer)}
+.karte strong{display:block;font-size:1.1rem;line-height:1.25}
+.karte small{display:block;margin-top:4px;color:var(--farbe-text-hell);font-size:.9rem;line-height:1.4}
+.karte .pfeil{flex:none;color:var(--farbe-primaer);font-weight:700;font-size:1.2rem}
+.karten.gross .karte{padding:22px 22px;min-height:7em;align-items:flex-start}
+
+/* Informationen zur Gruppe */
+.info{margin:18px 0 0;display:grid;gap:12px}
+.info div{background:var(--farbe-flaeche);border-radius:12px;padding:14px 18px}
+.info dt{font-size:.78rem;font-weight:700;color:var(--farbe-primaer);text-transform:uppercase;letter-spacing:.07em;margin:0 0 4px}
+.info dd{margin:0;white-space:pre-line}
+.info ul{margin:0;padding-left:20px}
+
+/* Buttons */
+.btns{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
+.btn{
+  display:inline-block;padding:12px 22px;border-radius:999px;font-weight:700;text-decoration:none;cursor:pointer;
+  background:var(--farbe-primaer);color:#fff;border:2px solid var(--farbe-primaer);
+}
+.btn:hover{background:var(--farbe-primaer-dunkel);border-color:var(--farbe-primaer-dunkel)}
+.btn.rand{background:transparent;color:var(--farbe-primaer)}
+.btn.rand:hover{background:var(--farbe-primaer-hell);color:var(--farbe-primaer-dunkel)}
+
+/* Aktuelles */
+.meldungen{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+.meldungen a{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;text-decoration:none;color:var(--farbe-text);font-weight:700;
+  padding:16px 20px;border:1px solid var(--farbe-linie);border-radius:14px;
+  transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease;
+}
+.meldungen a:hover{transform:translateY(-2px);box-shadow:var(--schatten);border-color:var(--farbe-primaer)}
+.meldungen .pfeil{color:var(--farbe-primaer)}
+.meldungen small{display:block;font-weight:500;color:var(--farbe-text-hell)}
+
+/* Termine */
+.termine-frame{display:block;width:100%;height:600px;border:1px solid var(--farbe-linie);border-radius:var(--radius);background:#fff}
+
+/* Kontakt / Mitglied werden */
+.boxen{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.box{background:var(--farbe-flaeche);border-radius:14px;padding:18px 20px}
+.box h3{margin:0 0 6px;font-size:1.02rem}
+.box p,.box address{margin:0;font-style:normal}
+.liste{margin:14px 0 0;padding-left:20px;color:var(--farbe-text-hell)}
+
+@media (max-width:600px){
+  .panel{padding:18px}
+  .tiles{grid-template-columns:repeat(2,1fr)}
+  .tile{min-height:5.4em}
+  .termine-frame{height:520px}
+}
+@media (prefers-reduced-motion:reduce){
+  .panel > *{animation:none}
+  .tile,.karte,.meldungen a{transition:none}
+  .tile:hover,.karte:hover,.meldungen a:hover{transform:none}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <nav class="tiles" id="kacheln" aria-label="Bereiche der Vereinsseite"></nav>
+  <main class="panel" id="inhalt"></main>
+  <noscript>
+    <p>Diese Seite benötigt JavaScript. Die Vereinsseite findest du unter
+    <a href="https://www.tsv-simmozheim.de/" target="_top">www.tsv-simmozheim.de</a>.</p>
+  </noscript>
+</div>
+
+<script>
+/* ===================== 1. EINSTELLUNGEN ===================== */
+
+// Adresse der bestehenden Homepage (ohne Schrägstrich am Ende)
+var BASIS = "https://www.tsv-simmozheim.de";
+
+// Adresse der Kalenderseite (GitHub Pages). Bitte prüfen, ob sie stimmt.
+// Leer lassen = unter "Termine" erscheint nur der Link zu den Veranstaltungen.
+var TERMINE_URL = "https://westfale1961.github.io/vereinsheim/";
+
+// Kontaktdaten. Leer lassen = wird nicht angezeigt.
+var KONTAKT = {
+  name:    "TSV Simmozheim 1906 e.V.",
+  strasse: "Ostelsheimer Str. 40",
+  ort:     "75397 Simmozheim",
+  telefon: "",
+  email:   ""
+};
+
+// Seiten auf der Homepage (Pfade)
+var SEITEN = {
+  ansprechpartner: "/Hauptverein/AllgemeineInfos/Organisation/",
+  beitraege:       "/Hauptverein/AllgemeineInfos/Beitraege/",
+  beitritt:        "/Downloadbereich/Dokumente/",
+  veranstaltungen: "/Veranstaltungen/VeranstaltungenundBelegungderSportstaetten/",
+  alleMeldungen:   "/NEWSausdenAbteilungen/NewsausdenAbteilungen/"
+};
+
+
+/* ===================== 2. NEWS (Aktuelles) ===================== */
+// Je Meldung: Titel, Pfad der Seite, optional Datum.
+var NEWS = [
+  { titel: "Kinder- und Jugendsport beim TSV Simmozheim – ohne Ehrenamt geht es nicht", pfad: "/NEWSausdenAbteilungen/NewsausdenAbteilungen/?#5431" },
+  { titel: "FamilyDance in den Ferien",                                                 pfad: "/LineDance/LineDance/LetsLineNews/?#5413" },
+  { titel: "Spendenkonto",                                                              pfad: "/Spendenkonto/Spende/?#5392" },
+  { titel: "Datenschutzordnung TSV Simmozheim 1906 e.V.",                               pfad: "/Datenschutz/Datenschutz/?#4967" }
+  // Beispiel mit Datum:  { titel: "Neue Kurse", pfad: "/…/", datum: "12. November 2026" },
+];
+
+
+/* ===================== 3. ABTEILUNGEN ===================== */
+// g(Name, Pfad der Gruppenseite, optional Kurzinfo)
+//
+// Kurzinfo (optional) – Beispiel:
+//   g("Bodyfit", "/Turnen/Erwachsene/Bodyfit/", {
+//     text:    "Kräftigung und Ausdauer für den ganzen Körper.",
+//     zeiten:  ["Dienstag 19:00–20:00 Uhr", "Donnerstag 20:00–21:00 Uhr"],
+//     ort:     "Geißberghalle",
+//     kontakt: "Name, Telefon oder E-Mail"
+//   })
+// Nicht benötigte Felder einfach weglassen.
+function g(name, pfad, info){ return { name: name, pfad: pfad, info: info || null }; }
+
+var ABTEILUNGEN = [
+  {
+    name: "Turnen",
+    kurz: "Eltern-Kind-Turnen, Kinderleichtathletik, Gymnastik, Fitness & mehr.",
+    pfad: "/Turnen/AllgemeineInfos/InfosausderAbteilung/",
+    gruppen: [
+      { titel: "Kinder und Jugendliche", eintraege: [
+        g("Turnerjugend – Übersicht",  "/Turnen/KinderundJugendliche/TurnerjugendUebersicht/"),
+        g("Kinderleichtathletik",      "/Turnen/KinderundJugendliche/Kinderleichtathletik/"),
+        g("Jugendleichtathletik",      "/Turnen/KinderundJugendliche/Leichtathletik/"),
+        g("Eltern-Kind-Turnen",        "/Turnen/KinderundJugendliche/ElternKindGruppen/"),
+        g("Vorschulturnen",            "/Turnen/KinderundJugendliche/Vorschulturnen/"),
+        g("Buben- und Jugendturnen",   "/Turnen/KinderundJugendliche/BubenundJugendturnen/"),
+        g("HipHop – Magic’s",          "/Turnen/KinderundJugendliche/HipHopMagics/"),
+        g("Mädchenturnen",             "/Turnen/KinderundJugendliche/Maedchenturnen/")
+      ]},
+      { titel: "Erwachsene", eintraege: [
+        g("Breitensport – Übersicht",  "/Turnen/Erwachsene/BreitensportUebersichtaufeinenBlick/"),
+        g("Athletik-Core-Training",    "/Turnen/Erwachsene/AthletikCoreTraining/"),
+        g("Bodyfit",                   "/Turnen/Erwachsene/Bodyfit/"),
+        g("Fitness",                   "/Turnen/Erwachsene/Fitness/"),
+        g("Frauengymnastik – Fit mit Musik", "/Turnen/Erwachsene/FrauengymnastikFitmitMusik/"),
+        g("Jedermannsport",            "/Turnen/Erwachsene/Jedermannsport/"),
+        g("Lauftreff",                 "/Turnen/Erwachsene/Lauftreff/"),
+        g("Volleyball",                "/Turnen/Erwachsene/Volleyball/")
+      ]},
+      { titel: "Radsport", eintraege: [
+        g("Mountainbike",              "/Radsport/MTB/AllgemeineInfos/"),
+        g("Indoor Cycling",            "/Radsport/IndoorCycling/TeamIndoorCycling/")
+      ]},
+      { titel: "Allgemeines", eintraege: [
+        g("Infos aus der Abteilung",   "/Turnen/AllgemeineInfos/InfosausderAbteilung/"),
+        g("Vereinskleidung",           "/Turnen/AllgemeineInfos/Vereinskleidung/"),
+        g("Übungsleiterinfos",         "/Turnen/AllgemeineInfos/Uebungsleiterinfos/"),
+        g("Login easy",                "/Turnen/AllgemeineInfos/Logineasy/")
+      ]},
+      { titel: "Archiv", eintraege: [
+        g("Archiv Turnen",             "/Turnen/Archive/ArchivTurnen/"),
+        g("Archiv Volleyball",         "/Turnen/Archive/ArchivVolleyball/"),
+        g("Archiv Laufen",             "/Turnen/Archive/ArchivLaufen/")
+      ]}
+    ]
+  },
+  {
+    name: "Fußball",
+    kurz: "Bambini bis Aktive – Spiel, Spaß und Teamgeist auf dem Platz.",
+    pfad: "/Fussball/Aktuelles/",
+    gruppen: [
+      { titel: "", eintraege: [
+        g("Aktuelles",                 "/Fussball/Aktuelles/"),
+        g("Ansprechpartner",           "/Fussball/Ansprechpartner/"),
+        g("Frauen",                    "/Fussball/Frauen/"),
+        g("AH",                        "/Fussball/AH/"),
+        g("Jugend – JSG Hengstett",    "/Fussball/JugendJSGHengstett/"),
+        g("Trainingszeiten",           "/Fussball/Trainingszeiten/"),
+        g("Archiv",                    "/Fussball/Archiv/")
+      ]}
+    ]
+  },
+  {
+    name: "Tennis",
+    kurz: "Training für Kinder und Erwachsene, Medenrunde und Freizeitspiel.",
+    pfad: "/Tennis/Aktuelles/",
+    gruppen: [
+      { titel: "", eintraege: [
+        g("Aktuelles",                 "/Tennis/Aktuelles/"),
+        g("Mannschaften",              "/Tennis/Mannschaften/"),
+        g("Anlage / Anfahrt",          "/Tennis/AnlageAnfahrt/"),
+        g("Mitglied werden",           "/Tennis/Mitgliedwerden/"),
+        g("Termine",                   "/Tennis/Termine/")
+      ]}
+    ]
+  },
+  {
+    name: "Line Dance",
+    kurz: "Tanzen in der Gruppe – Musik, Bewegung und gute Laune.",
+    pfad: "/LineDance/LetsLineLineDancedesTSVSimmozheim/",
+    gruppen: [
+      { titel: "Let’s Line", eintraege: [
+        g("Line Dance des TSV Simmozheim",           "/LineDance/LetsLineLineDancedesTSVSimmozheim/"),
+        g("News",                                    "/LineDance/LineDance/LetsLineNews/"),
+        g("Anmeldung zum Schnupperkurs Herbst 2026", "/LineDance/LineDance/AnmeldungzumSchnupperkursHerbst2026/"),
+        g("TSV Line Dance",                          "/LineDance/LineDance/LetsLineTSVLineDance/"),
+        g("Übungszeiten",                            "/LineDance/LineDance/LetsLineUebungszeiten/"),
+        g("Tänze",                                   "/LineDance/LineDance/LetsLineTaenze/"),
+        g("Berichte",                                "/LineDance/LineDance/LetsLineBerichte/"),
+        g("Schrittfolgen „Spickzettel“",             "/LineDance/LineDance/SchrittfolgenSpickzettel/")
+      ]},
+      { titel: "Archiv", eintraege: [
+        g("Archiv Berichte",                         "/LineDance/ArchivLineDance/ArchivBerichte/"),
+        g("Archiv News",                             "/LineDance/ArchivLineDance/ArchivNews/")
+      ]}
+    ]
+  }
+];
+
+
+/* ========================================================== */
+/* Ab hier ist die Technik – normalerweise nichts ändern.      */
+/* ========================================================== */
+
+(function(){
+  var ICONS = {
+    abteilungen: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    aktuelles:   '<path d="M5 4h11a2 2 0 0 1 2 2v13a1 1 0 0 0 1 1H6a2 2 0 0 1-2-2V5a1 1 0 0 1 1-1z"/><path d="M18 8h2v11a1 1 0 0 1-1 1"/><path d="M8 8h6M8 12h6M8 16h4"/>',
+    termine:     '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    kontakt:     '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+    mitglied:    '<circle cx="9" cy="8" r="4"/><path d="M2 21c0-4 3-7 7-7s7 3 7 7"/><path d="M19 8v6M16 11h6"/>'
+  };
+  var TABS = [
+    { id: "abteilungen", label: "Abteilungen" },
+    { id: "aktuelles",   label: "Aktuelles" },
+    { id: "termine",     label: "Termine" },
+    { id: "kontakt",     label: "Kontakt" },
+    { id: "mitglied",    label: "Mitglied werden" }
+  ];
+
+  var kacheln = document.getElementById("kacheln");
+  var inhalt  = document.getElementById("inhalt");
+  var fokusSetzen = false;   // Fokus nur nach Klicks verschieben, nicht beim ersten Laden
+
+  /* ---------- Hilfsfunktionen ---------- */
+  function h(tag, props, kids){
+    var e = document.createElement(tag);
+    for (var k in (props || {})){
+      if (k === "class") e.className = props[k];
+      else if (k === "text") e.textContent = props[k];
+      else if (k.slice(0, 2) === "on") e.addEventListener(k.slice(2), props[k]);
+      else e.setAttribute(k, props[k]);
+    }
+    (kids || []).forEach(function(c){
+      if (c === null || c === undefined || c === false) return;
+      e.appendChild(typeof c === "string" ? document.createTextNode(c) : c);
+    });
+    return e;
+  }
+  function svg(inner){
+    var s = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    s.setAttribute("viewBox", "0 0 24 24");
+    s.setAttribute("aria-hidden", "true");
+    s.innerHTML = inner;
+    return s;
+  }
+  function slug(t){
+    return t.toLowerCase().replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss")
+            .replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+  }
+  function ext(text, pfad, cls){            // Link zur Homepage, öffnet im ganzen Fenster
+    return h("a", { "class": cls || "btn", href: BASIS + pfad, target: "_top", rel: "noopener", text: text });
+  }
+  function go(teile){
+    fokusSetzen = true;
+    var neu = "#" + teile.map(encodeURIComponent).join("/");
+    if (location.hash === neu) route(); else location.hash = neu;
+  }
+  function knopf(text, teile, cls){
+    return h("button", { type: "button", "class": cls || "btn", text: text, onclick: function(){ go(teile); } });
+  }
+  function titel(text){ return h("h2", { text: text }); }
+
+  function krumen(liste){                   // liste: [{text, teile}] – letztes Element = aktuelle Seite
+    var n = h("nav", { "class": "krumen", "aria-label": "Pfad" });
+    liste.forEach(function(k, i){
+      if (i > 0) n.appendChild(h("span", { "class": "trenner", "aria-hidden": "true", text: "›" }));
+      if (i === liste.length - 1) n.appendChild(h("span", { "aria-current": "page", text: k.text }));
+      else n.appendChild(knopf(k.text, k.teile, ""));
+    });
+    return n;
+  }
+  function karte(name, sub, teile){
+    return h("button", { type: "button", "class": "karte", onclick: function(){ go(teile); } }, [
+      h("span", {}, [ h("strong", { text: name }), sub ? h("small", { text: sub }) : null ]),
+      h("span", { "class": "pfeil", "aria-hidden": "true", text: "→" })
+    ]);
+  }
+
+  /* ---------- Bereiche ---------- */
+  function ansichtAbteilungen(p){
+    var abt = null, grp = null, i, j;
+    if (p[1]){
+      for (i = 0; i < ABTEILUNGEN.length; i++) if (slug(ABTEILUNGEN[i].name) === p[1]) abt = ABTEILUNGEN[i];
+    }
+    if (abt && p[2]){
+      abt.gruppen.forEach(function(k){ k.eintraege.forEach(function(e){ if (slug(e.name) === p[2]) grp = e; }); });
+    }
+    var wurzel = [{ text: "Abteilungen", teile: ["abteilungen"] }];
+
+    // Ebene 1: Abteilungen
+    if (!abt){
+      var raster = h("div", { "class": "karten gross" });
+      ABTEILUNGEN.forEach(function(a){ raster.appendChild(karte(a.name, a.kurz, ["abteilungen", slug(a.name)])); });
+      return [ titel("Abteilungen"), h("p", { "class": "lead", text: "Wähle deinen Sport – dann siehst du die Gruppen mit allen Informationen." }), raster ];
+    }
+
+    // Ebene 3: Gruppe
+    if (grp){
+      var out = [
+        krumen(wurzel.concat([{ text: abt.name, teile: ["abteilungen", slug(abt.name)] }, { text: grp.name }])),
+        titel(grp.name)
+      ];
+      var inf = grp.info;
+      if (inf){
+        if (inf.text) out.push(h("p", { "class": "lead", text: inf.text }));
+        var dl = h("dl", { "class": "info" });
+        function zeile(bez, inhalt){ dl.appendChild(h("div", {}, [ h("dt", { text: bez }), inhalt ])); }
+        if (inf.zeiten && inf.zeiten.length){
+          zeile("Wann", h("dd", {}, [ h("ul", {}, inf.zeiten.map(function(z){ return h("li", { text: z }); })) ]));
+        }
+        if (inf.ort)     zeile("Wo", h("dd", { text: inf.ort }));
+        if (inf.kontakt) zeile("Ansprechpartner", h("dd", { text: inf.kontakt }));
+        if (dl.children.length) out.push(dl);
+      } else {
+        out.push(h("p", { "class": "lead", text: "Alle Informationen zu „" + grp.name + "“ findest du auf der Seite der Gruppe." }));
+      }
+      out.push(h("div", { "class": "btns" }, [
+        ext("Alle Infos zu " + grp.name + " →", grp.pfad),
+        knopf("← Zurück zu " + abt.name, ["abteilungen", slug(abt.name)], "btn rand")
+      ]));
+      return out;
+    }
+
+    // Ebene 2: Gruppen einer Abteilung
+    var res = [
+      krumen(wurzel.concat([{ text: abt.name }])),
+      titel(abt.name),
+      h("p", { "class": "lead", text: abt.kurz })
+    ];
+    abt.gruppen.forEach(function(k){
+      if (k.titel) res.push(h("h3", { "class": "kat", text: k.titel }));
+      var r = h("div", { "class": "karten" });
+      k.eintraege.forEach(function(e){ r.appendChild(karte(e.name, "", ["abteilungen", slug(abt.name), slug(e.name)])); });
+      res.push(r);
+    });
+    res.push(h("div", { "class": "btns" }, [ ext("Zur Abteilungsseite →", abt.pfad, "btn rand") ]));
+    return res;
+  }
+
+  function ansichtAktuelles(){
+    var liste = h("ul", { "class": "meldungen" });
+    NEWS.forEach(function(n){
+      liste.appendChild(h("li", {}, [
+        h("a", { href: BASIS + n.pfad, target: "_top", rel: "noopener" }, [
+          h("span", {}, [ n.datum ? h("small", { text: n.datum }) : null, n.titel ]),
+          h("span", { "class": "pfeil", "aria-hidden": "true", text: "→" })
+        ])
+      ]));
+    });
+    return [
+      titel("Aktuelles"),
+      h("p", { "class": "lead", text: "Neuigkeiten aus dem Verein und den Abteilungen." }),
+      liste,
+      h("div", { "class": "btns" }, [ ext("Alle Meldungen aus den Abteilungen →", SEITEN.alleMeldungen, "btn rand") ])
+    ];
+  }
+
+  function ansichtTermine(){
+    var out = [ titel("Termine"), h("p", { "class": "lead", text: "Spiele, Kurse und Veranstaltungen aller Abteilungen." }) ];
+    if (TERMINE_URL){
+      out.push(h("iframe", { "class": "termine-frame", src: TERMINE_URL, title: "Terminkalender des TSV Simmozheim", loading: "lazy" }));
+    }
+    out.push(h("div", { "class": "btns" }, [ ext("Veranstaltungen & Hallenbelegung →", SEITEN.veranstaltungen, "btn rand") ]));
+    return out;
+  }
+
+  function ansichtKontakt(){
+    var boxen = h("div", { "class": "boxen" });
+    boxen.appendChild(h("div", { "class": "box" }, [
+      h("h3", { text: "Adresse" }),
+      h("address", {}, [ KONTAKT.name, h("br"), KONTAKT.strasse, h("br"), KONTAKT.ort ])
+    ]));
+    if (KONTAKT.telefon || KONTAKT.email){
+      var p = h("p");
+      if (KONTAKT.telefon) p.appendChild(document.createTextNode("Telefon: " + KONTAKT.telefon));
+      if (KONTAKT.telefon && KONTAKT.email) p.appendChild(h("br"));
+      if (KONTAKT.email){
+        p.appendChild(document.createTextNode("E-Mail: "));
+        p.appendChild(h("a", { href: "mailto:" + KONTAKT.email, text: KONTAKT.email }));
+      }
+      boxen.appendChild(h("div", { "class": "box" }, [ h("h3", { text: "Telefon & E-Mail" }), p ]));
+    }
+    boxen.appendChild(h("div", { "class": "box" }, [
+      h("h3", { text: "Ansprechpartner" }),
+      h("p", { text: "Vorstand, Abteilungsleiter und Übungsleiter findest du übersichtlich auf einer Seite." }),
+      h("p", { style: "margin-top:10px" }, [ ext("Zu den Ansprechpartnern →", SEITEN.ansprechpartner, "") ])
+    ]));
+    return [ titel("So erreichst du uns"), h("p", { "class": "lead", text: "Wir freuen uns über deine Nachricht." }), boxen ];
+  }
+
+  function ansichtMitglied(){
+    return [
+      titel("Mitglied werden"),
+      h("p", { "class": "lead", text: "Probiere unsere Angebote unverbindlich aus – wir freuen uns auf dich." }),
+      h("ul", { "class": "liste" }, [
+        h("li", { text: "Für Kinder, Jugendliche und Erwachsene" }),
+        h("li", { text: "Qualifizierte Übungsleiterinnen und Übungsleiter" }),
+        h("li", { text: "Gemeinschaft im Verein vor Ort" })
+      ]),
+      h("div", { "class": "btns" }, [
+        ext("Beitrittserklärung", SEITEN.beitritt),
+        ext("Beiträge", SEITEN.beitraege, "btn rand"),
+        knopf("Fragen? Kontakt", ["kontakt"], "btn rand")
+      ])
+    ];
+  }
+
+  var ANSICHTEN = {
+    abteilungen: ansichtAbteilungen, aktuelles: ansichtAktuelles, termine: ansichtTermine,
+    kontakt: ansichtKontakt, mitglied: ansichtMitglied
+  };
+
+  /* ---------- Kacheln aufbauen ---------- */
+  TABS.forEach(function(t){
+    kacheln.appendChild(h("button", { type: "button", "class": "tile", "data-tab": t.id, onclick: function(){ go([t.id]); } }, [
+      svg(ICONS[t.id]), h("span", { text: t.label })
+    ]));
+  });
+
+  /* ---------- Anzeige ---------- */
+  function route(){
+    var roh = location.hash.replace(/^#\/?/, "");
+    var p = roh ? roh.split("/").map(function(s){ try { return decodeURIComponent(s); } catch (e) { return s; } }) : [];
+    var tab = ANSICHTEN[p[0]] ? p[0] : "abteilungen";
+    if (tab !== p[0]) p = [tab];
+
+    Array.prototype.forEach.call(kacheln.children, function(b){
+      if (b.getAttribute("data-tab") === tab) b.setAttribute("aria-current", "true");
+      else b.removeAttribute("aria-current");
+    });
+
+    inhalt.innerHTML = "";
+    ANSICHTEN[tab](p).forEach(function(n){ inhalt.appendChild(n); });
+
+    if (fokusSetzen){
+      var ue = inhalt.querySelector("h2");
+      if (ue){ ue.setAttribute("tabindex", "-1"); ue.focus({ preventScroll: true }); }
+      fokusSetzen = false;
+    }
+  }
+  window.addEventListener("hashchange", route);
+  route();
+})();
+</script>
+</body>
+</html>
